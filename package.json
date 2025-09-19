@@ -1,0 +1,23 @@
+{
+  "name": "bigdataanalytics",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "vite",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "vite": "^7.1.6",
+    "vite-plugin-mkcert": "^1.17.8"
+  },
+  "dependencies": {
+    "-": "^0.0.1",
+    "aframe": "^1.2.0",
+    "ar.js": "^1.7.1",
+    "D": "^1.0.0"
+  }
+}
