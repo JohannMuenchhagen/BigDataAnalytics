@@ -29,7 +29,7 @@ npm start
 
 ## Marker
 Aktuell wird der **HIRO Marker** als Standard verwendet.
-Der Marker kann [hier heruntergeladen werden](https://jeromeetienne.github.io/AR.js/data/images/HIRO.jpg
+Der Marker kann [hier heruntergeladen werden](https://jeromeetienne.github.io/AR.js/data/images/HIRO.jpg)
 
 ## Entwicklung
 * Das Projekt befindet sich in der aktiven Entwicklung.
