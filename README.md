@@ -14,7 +14,12 @@ Diese Anwendung basiert auf Node.js und AR.js.
 ```bash
 git clone https://github.com/JohannMuenchhagen/BigDataAnalytics.git
 ```
-2. Abhängigkeiten installieren
+2. In das Verzeichnis gehen
+```bash
+cd pfad/zum/repo
+```  
+
+3. Abhängigkeiten installieren
 ```bash
 npm install
 ```
