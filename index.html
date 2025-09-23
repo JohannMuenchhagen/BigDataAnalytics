@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <title>AR.js auf dem iPhone</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
@@ -8,9 +9,21 @@
 </head>
 <body style="margin: 0; overflow: hidden;">
 
-<a-scene embedded arjs="trackingMethod: best; sourceType: webcam; detectionMode: mono; maxDetectionRate: 30; canvasWidth: 1280; canvasHeight: 960;">
+<!-- Container for oxygen buttons -->
+<div id="oxygenContainer" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000; pointer-events: none;">
+</div>
 
-    <a-marker preset="hiro" smooth="true" smoothCount="5" smoothTolerance="0.01" smoothThreshold="5">
+<!-- Container for CO2 buttons -->
+<div id="co2Container" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000; pointer-events: none; display: none;">
+</div>
+
+<!-- Container for message boxes -->
+<div id="messageContainer" style="position: fixed; bottom: 200px; left: 20px; right: 20px; height: 300px; z-index: 1001; pointer-events: none; overflow: visible; display: flex; flex-direction: column; justify-content: flex-end;">
+</div>
+
+<a-scene embedded arjs="trackingMethod: best; sourceType: webcam; detectionMode: mono; maxDetectionRate: 30; canvasWidth: 1280; canvasHeight: 960; debugUIEnabled: false;">
+
+    <a-marker preset="hiro" smooth="true" smoothCount="10" smoothTolerance="0.05" smoothThreshold="2" id="hiroMarker">
 
 
         <a-text id="dummytext"
@@ -27,8 +40,8 @@
                 position="-2 0.5 -2"
                 width=20
                 rotation="-90 0 0"></a-text>
-
-        <a-image src="image/IMG_1352.png"
+        <a-image id="clickableImage"
+                 src="image/tree.png"
                  position="0 1 0"
                  rotation="-90 0 0"
                  width="2"
@@ -45,6 +58,313 @@
         return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 
+    let messageIndex = 0;
+    const messages = [
+        "Dieser {Eiche} erzeugt durch. {100} g O2/Std.&#128167",
+        "Das reicht {3} Menschen fuer 1-Stunde-Atmen aus",
+        "Mehr Baeume &#127795; = Mehr Sauerstoff fuer uns alle &#10084;"
+    ];
+
+    // CO2 messages for left side (received messages)
+    let co2MessageIndex = 0;
+    const co2Messages = [
+        "Dieser {Eicher} nimmt 100 g CO2/Std. auf &#127795;",
+        "Was sollen wir denn tun, um ihm dabei zu helfen? &#128158;"
+    ];
+
+    // CO2 action messages for right side (sent messages)
+    const co2ActionMessages = [
+        "pro Nutzung eines Mehrwegbechers spart man ~21g weniger CO2 &#127796;",
+        "pro KM Öffi-Fahren spart man ~108g weniger CO2 &#128154;",
+        "pro KM Radfahren spart man sogar ~166g weniger CO2 &#128652;",
+    ];
+
+    function createMessageBox(text) {
+        const messageContainer = document.getElementById('messageContainer');
+        const messageBox = document.createElement('div');
+        
+        messageBox.style.cssText = `
+            background-color: #DCF8C6;
+            color: #000;
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            border-radius: 18px;
+            max-width: 80%;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.4;
+            position: relative;
+            margin-left: auto;
+            margin-right: 0;
+            transform: translateX(100%);
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: auto;
+        `;
+        
+        // Clean and debug the text
+        const cleanText = text.replace(/^\s+/, '').replace(/\s+$/, '');
+        messageBox.innerHTML = cleanText;
+        console.log('Right message text:', JSON.stringify(cleanText));
+        messageContainer.appendChild(messageBox);
+        
+        // Animate in
+        setTimeout(() => {
+            messageBox.style.transform = 'translateX(0)';
+            messageBox.style.opacity = '1';
+        }, 100);
+        
+        // Messages stay permanently - no auto-remove
+    }
+
+    function createLeftMessageBox(text) {
+        const messageContainer = document.getElementById('messageContainer');
+        const messageBox = document.createElement('div');
+        
+        messageBox.style.cssText = `
+            position: relative;
+            background-color: #E5E5EA;
+            color: black;
+            padding: 10px 15px;
+            margin: 0 0 10px 30px;
+            border-radius: 18px;
+            max-width: 250px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 14px;
+            line-height: 1.4;
+            word-wrap: break-word;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            opacity: 0;
+            transform: translateX(0);
+            transition: opacity 0.3s ease;
+            display: block;
+            width: fit-content;
+        `;
+        
+        messageBox.innerHTML = text.trim();
+        messageContainer.appendChild(messageBox);
+        
+        // Animate in
+        setTimeout(() => {
+            messageBox.style.opacity = '1';
+        }, 100);
+    }
+
+    function showNextMessage() {
+        if (messageIndex < messages.length) {
+            createMessageBox(messages[messageIndex]);
+            messageIndex++;
+            
+            // If this was the last O2 message, switch to CO2 mode after 7 seconds
+            if (messageIndex === messages.length) {
+                setTimeout(() => {
+                    switchToCO2Mode();
+                }, 7000);
+            }
+        }
+    }
+
+    function clearAllMessages() {
+        const messageContainer = document.getElementById('messageContainer');
+        while (messageContainer.firstChild) {
+            messageContainer.removeChild(messageContainer.firstChild);
+        }
+        messageIndex = 0; // Reset O2 message counter
+        co2MessageIndex = 0; // Reset CO2 message counter
+    }
+
+    function createOxygenButton(x, y) {
+        const container = document.getElementById('oxygenContainer');
+        const button = document.createElement('button');
+        
+        // Style the oxygen button
+        button.style.cssText = `
+            position: absolute;
+            left: ${x}px;
+            top: ${y}px;
+            width: 100px;
+            height: 100px;
+            background-color: rgba(0, 123, 255, 0.3);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: all 0.3s ease;
+            box-shadow: 
+                0 0 20px rgba(255, 255, 255, 0.8),
+                0 0 40px rgba(0, 123, 255, 0.6),
+                0 0 60px rgba(0, 123, 255, 0.4),
+                inset 0 0 20px rgba(255, 255, 255, 0.3);
+            filter: blur(0.5px);
+            backdrop-filter: blur(2px);
+        `;
+        
+        button.textContent = 'O2';
+        
+        // Click to disappear and show next message
+        button.addEventListener('click', () => {
+            button.style.transform = 'scale(0)';
+            button.style.opacity = '0';
+            setTimeout(() => {
+                if (button.parentNode) {
+                    button.parentNode.removeChild(button);
+                }
+            }, 300);
+            
+            // Show the next message in sequence
+            showNextMessage();
+        });
+        
+        container.appendChild(button);
+    }
+
+    function create3OxygenButtons() {
+        // Define the three specific positions
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+        
+        // Position 1: Upper right
+        const upperRightX = screenWidth - 150; // 150px from right edge
+        const upperRightY = 100; // 100px from top
+        
+        // Position 2: Upper left  
+        const upperLeftX = 50; // 50px from left edge
+        const upperLeftY = 100; // 100px from top
+        
+        // Position 3: Middle center, lower than the other two
+        const middleX = (screenWidth / 2) - 50; // Center horizontally (minus half button width)
+        const middleY = 250; // Lower than the upper ones
+        
+        // Create buttons at specific positions
+        createOxygenButton(upperRightX, upperRightY);
+        createOxygenButton(upperLeftX, upperLeftY);
+        createOxygenButton(middleX, middleY);
+    }
+
+    function showNextCO2Message() {
+        if (co2MessageIndex < 2) {
+            // First two messages from left
+            createLeftMessageBox(co2Messages[co2MessageIndex]);
+            co2MessageIndex++;
+        } else if (co2MessageIndex === 2) {
+            // Third click: show sequence of 3 messages from right
+            co2ActionMessages.forEach((msg, index) => {
+                setTimeout(() => {
+                    createMessageBox(msg);
+                }, index * 1500); // 1.5 seconds between each message
+            });
+            co2MessageIndex++;
+        }
+    }
+
+    function createCO2Button(x, y) {
+        const container = document.getElementById('co2Container');
+        const button = document.createElement('button');
+        
+        // Style the CO2 button (gray color)
+        button.style.cssText = `
+            position: absolute;
+            left: ${x}px;
+            top: ${y}px;
+            width: 100px;
+            height: 100px;
+            background-color: rgba(128, 128, 128, 0.3);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: all 0.3s ease;
+            box-shadow: 
+                0 0 20px rgba(255, 255, 255, 0.5),
+                0 0 40px rgba(128, 128, 128, 0.4),
+                0 0 60px rgba(128, 128, 128, 0.2),
+                inset 0 0 20px rgba(255, 255, 255, 0.2);
+            filter: blur(0.5px);
+            backdrop-filter: blur(2px);
+        `;
+        
+        button.textContent = 'CO2';
+        
+        // Click to disappear and show next CO2 message
+        button.addEventListener('click', () => {
+            button.style.transform = 'scale(0)';
+            button.style.opacity = '0';
+            setTimeout(() => {
+                if (button.parentNode) {
+                    button.parentNode.removeChild(button);
+                }
+            }, 300);
+            
+            // Show the next CO2 message
+            showNextCO2Message();
+        });
+        
+        container.appendChild(button);
+    }
+
+    function create3CO2Buttons() {
+        // Use same positions as oxygen buttons
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+        
+        const upperRightX = screenWidth - 150;
+        const upperRightY = 100;
+        const upperLeftX = 50;
+        const upperLeftY = 100;
+        const middleX = (screenWidth / 2) - 50;
+        const middleY = 250;
+        
+        createCO2Button(upperRightX, upperRightY);
+        createCO2Button(upperLeftX, upperLeftY);
+        createCO2Button(middleX, middleY);
+    }
+
+    function clearAllOxygenButtons() {
+        const container = document.getElementById('oxygenContainer');
+        while (container.firstChild) {
+            container.removeChild(container.firstChild);
+        }
+    }
+
+    function clearAllCO2Buttons() {
+        const container = document.getElementById('co2Container');
+        while (container.firstChild) {
+            container.removeChild(container.firstChild);
+        }
+    }
+
+    function clearAllMessages() {
+        const messageContainer = document.getElementById('messageContainer');
+        while (messageContainer.firstChild) {
+            messageContainer.removeChild(messageContainer.firstChild);
+        }
+        messageIndex = 0;
+        co2MessageIndex = 0;
+    }
+
+    function switchToCO2Mode() {
+        // Clear all existing messages first
+        clearAllMessages();
+        
+        // Switch to CO2 mode
+        currentMode = 'co2';
+        document.getElementById('oxygenContainer').style.display = 'none';
+        document.getElementById('co2Container').style.display = 'block';
+        
+        // Clear any remaining O2 buttons and create CO2 buttons
+        clearAllOxygenButtons();
+        create3CO2Buttons();
+        
+        console.log('Automatically switched to CO2 mode');
+    }
+
     // Warte bis die Szene fertig geladen ist
     document.querySelector('a-scene').addEventListener('loaded', () => {
         const text = "Dummy";
@@ -52,9 +372,38 @@
 
         const tEl = document.getElementById("dummytext");
         const nEl = document.getElementById("dummyzahl");
+        const imgEl = document.getElementById("clickableImage");
+        const marker = document.getElementById("hiroMarker");
 
         if (tEl) tEl.setAttribute("value", text);
         if (nEl) nEl.setAttribute("value", number.toString());
+
+        // Listen for marker detection events
+        if (marker) {
+            // When marker is found - always start with oxygen mode
+            marker.addEventListener('markerFound', () => {
+                console.log('Marker detected - starting with oxygen mode');
+                
+                // Reset to oxygen mode
+                currentMode = 'oxygen';
+                document.getElementById('oxygenContainer').style.display = 'block';
+                document.getElementById('co2Container').style.display = 'none';
+                
+                // Clear everything and start fresh
+                clearAllOxygenButtons();
+                clearAllCO2Buttons();
+                clearAllMessages();
+                create3OxygenButtons();
+            });
+
+            // When marker is lost - remove all buttons and messages
+            marker.addEventListener('markerLost', () => {
+                console.log('Marker lost - removing all buttons and messages');
+                clearAllOxygenButtons();
+                clearAllCO2Buttons();
+                clearAllMessages();
+            });
+        }
     });
 </script>
 </body>
