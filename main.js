@@ -2,6 +2,8 @@
 let messageIndex = 0;
 let currentMode = 'oxygen'; // Declare currentMode to avoid implicit global
 let distance;
+let isNear;
+let bubbles_created;
 
 const BUBBLE_CONFIG = {
     O2: {
@@ -89,13 +91,11 @@ function createMessageBox(text) {
             transform: translateX(100%);
             opacity: 0;
             transition: all 0.3s ease;
-            pointer-events: none; /* Allow clicks to pass through to the AR scene */
+            pointer-events: none;
         `;
 
-    // Clean and debug the text
     const cleanText = text.replace(/^\s+/, '').replace(/\s+$/, '');
     messageBox.innerHTML = cleanText;
-    console.log('Right message text:', JSON.stringify(cleanText));
     messageContainer.appendChild(messageBox);
 
     // Animate in
@@ -104,8 +104,18 @@ function createMessageBox(text) {
         messageBox.style.opacity = '1';
     }, 100);
 
-    // Messages stay permanently - no auto-remove
-    // Auto remove hinzufügen
+    // Auto-remove nach 2 Sekunden
+    setTimeout(() => {
+        messageBox.style.transform = 'translateX(100%)';
+        messageBox.style.opacity = '0';
+
+        // Entferne das Element nach der Animation
+        setTimeout(() => {
+            if (messageBox.parentNode) {
+                messageBox.parentNode.removeChild(messageBox);
+            }
+        }, 300);
+    }, 2000); // 2 Sekunden anzeigen
 }
 
 function createLeftMessageBox(text) {
@@ -126,19 +136,33 @@ function createLeftMessageBox(text) {
             word-wrap: break-word;
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
             opacity: 0;
-            transform: translateX(0);
-            transition: opacity 0.3s ease;
-            pointer-events: none; /* Allow clicks to pass through to the AR scene */
+            transform: translateX(-100%);
+            transition: all 0.3s ease;
+            pointer-events: none;
             width: fit-content;
         `;
 
     messageBox.innerHTML = text.trim();
     messageContainer.appendChild(messageBox);
 
-    // Anixmate in
+    // Animate in
     setTimeout(() => {
         messageBox.style.opacity = '1';
+        messageBox.style.transform = 'translateX(0)';
     }, 100);
+
+    // Auto-remove nach 2 Sekunden
+    setTimeout(() => {
+        messageBox.style.transform = 'translateX(-100%)';
+        messageBox.style.opacity = '0';
+
+        // Entferne das Element nach der Animation
+        setTimeout(() => {
+            if (messageBox.parentNode) {
+                messageBox.parentNode.removeChild(messageBox);
+            }
+        }, 300);
+    }, 2000); // 2 Sekunden anzeigen
 }
 
 function showNextMessage() {
@@ -169,9 +193,13 @@ function clearAllMessages() {
  * Creates a single, reliable, clickable bubble with movement animation.
  * @param {number} index - The index for position arrays.
  * @param {'O2' | 'CO2'} type - The type of bubble to create.
- * @param {function} onClick - The function to execute when the bubble is clicked.
+ * @param {function} onClick - The function to execute on click.
+ * @param {object} [options] - Optional parameters for size.
+ * @param {number} [options.radius=0.4] - The radius of the bubble.
+ * @param {string} [options.textScale='2.2 2.2 2.2'] - The scale of the text.
+ * @param {boolean} [options.isStatic=false] - If true, the bubble will not have movement animations.
  */
-function createBubble(index, type, onClick) {
+function createBubble(index, type, onClick, options = { isStatic: false }) {
     const marker = document.getElementById('hiroMarker');
     if (!marker) return;
 
@@ -181,12 +209,16 @@ function createBubble(index, type, onClick) {
         BUBBLE_CONFIG.O2_END_POSITIONS[index % BUBBLE_CONFIG.O2_END_POSITIONS.length] :
         BUBBLE_CONFIG.CO2_END_POSITIONS[index % BUBBLE_CONFIG.CO2_END_POSITIONS.length];
 
+    // Set default or custom sizes
+    const radius = options.radius || 0.4;
+    const textScale = options.textScale || '2.2 2.2 2.2';
+
     // 1. Create the sphere. This is the root object and the single click target.
     const sphere = document.createElement('a-sphere');
     sphere.setAttribute('position', type === 'CO2' ?
         BUBBLE_CONFIG.O2_END_POSITIONS[index % BUBBLE_CONFIG.O2_END_POSITIONS.length] :
         startPos);
-    sphere.setAttribute('radius', '0.4');
+    sphere.setAttribute('radius', radius);
     sphere.setAttribute('color', config.color);
     sphere.setAttribute('material', 'opacity: 0.75; transparent: true;');
     sphere.classList.add(`${type.toLowerCase()}-bubble`);
@@ -194,92 +226,94 @@ function createBubble(index, type, onClick) {
 
     sphere.setAttribute('geometry', 'primitive: sphere; radius: 0.4; segmentsWidth: 16; segmentsHeight: 12;');
 
-    // Configure the disappear animation
+    // Configure the disappear animation (using the correct radius)
     sphere.setAttribute('animation__disappear', 'property: scale; to: 0 0 0; dur: 300; easing: easeInQuad; startEvents: disappear');
 
     // Add movement animation based on bubble type
-    const animationDuration = 12000 + Math.random() * 8000; // 12-20 seconds for natural movement
-    if (type === 'O2') {
-        // O2 bubbles: vom Baum weg nach außen und nach oben (Sauerstoffproduktion)
-        sphere.setAttribute('animation__move', `
-            property: position; 
-            to: ${endPos}; 
-            dur: ${animationDuration}; 
+    if (!options.isStatic) {
+        const animationDuration = 12000 + Math.random() * 8000; // 12-20 seconds for natural movement
+        if (type === 'O2') {
+            // O2 bubbles: vom Baum weg nach außen und nach oben (Sauerstoffproduktion)
+            sphere.setAttribute('animation__move', `
+                property: position; 
+                to: ${endPos}; 
+                dur: ${animationDuration}; 
+                loop: true; 
+                dir: normal;
+                easing: easeOutCubic
+            `);
+
+            // O2 bubbles werden größer beim Aufsteigen
+            sphere.setAttribute('animation__grow', `
+                property: scale; 
+                to: 1.3 1.3 1.3; 
+                dur: ${animationDuration}; 
+                loop: true; 
+                dir: normal;
+                easing: easeOutQuad
+            `);
+        } else {
+            // CO2 bubbles: von außen zum Baum hin und nach unten (CO2-Absorption)
+            sphere.setAttribute('animation__move', `
+                property: position; 
+                to: ${endPos}; 
+                dur: ${animationDuration}; 
+                loop: true; 
+                dir: normal;
+                easing: easeInCubic
+            `);
+
+            // CO2 bubbles werden kleiner beim Sinken
+            sphere.setAttribute('animation__shrink', `
+                property: scale; 
+                to: 0.65 0.65 0.65; 
+                dur: ${animationDuration}; 
+                loop: true; 
+                dir: normal;
+                easing: easeInQuad
+            `);
+        }
+
+        // Langsame Kreisbewegung um den Baum herum
+        const orbitDuration = 25000 + Math.random() * 10000; // 25-35 Sekunden
+        const orbitDirection = Math.random() > 0.5 ? 1 : -1; // Zufällige Richtung
+        sphere.setAttribute('animation__orbit', `
+            property: rotation; 
+            to: 0 ${360 * orbitDirection} 0; 
+            dur: ${orbitDuration}; 
             loop: true; 
-            dir: normal;
-            easing: easeOutCubic
+            easing: linear;
+            delay: ${Math.random() * 5000}
         `);
 
-        // O2 bubbles werden größer beim Aufsteigen
-        sphere.setAttribute('animation__grow', `
-            property: scale; 
-            to: 1.3 1.3 1.3; 
-            dur: ${animationDuration}; 
-            loop: true; 
-            dir: normal;
-            easing: easeOutQuad
-        `);
-    } else {
-        // CO2 bubbles: von außen zum Baum hin und nach unten (CO2-Absorption)
-        sphere.setAttribute('animation__move', `
+        // Sanftes Auf- und Ab-Schweben
+        const currentPos = sphere.getAttribute('position') || startPos;
+        const posArray = (typeof currentPos === 'string' ? currentPos : startPos).split(' ');
+        const bobHeight = 0.3 + Math.random() * 0.4; // 0.3-0.7 Einheiten
+        const bobTarget = `${posArray[0]} ${parseFloat(posArray[1]) + bobHeight} ${posArray[2]}`;
+
+        sphere.setAttribute('animation__bob', `
             property: position; 
-            to: ${endPos}; 
-            dur: ${animationDuration}; 
+            from: ${typeof currentPos === 'string' ? currentPos : startPos}; 
+            to: ${bobTarget}; 
+            dur: 3000 + ${Math.random() * 2000}; 
+            dir: alternate; 
             loop: true; 
-            dir: normal;
-            easing: easeInCubic
+            easing: easeInOutSine;
+            delay: ${Math.random() * 3000}
         `);
 
-        // CO2 bubbles werden kleiner beim Sinken
-        sphere.setAttribute('animation__shrink', `
-            property: scale; 
-            to: 0.65 0.65 0.65; 
-            dur: ${animationDuration}; 
+        // Subtile Opacity-Pulsation für ätherischen Effekt
+        sphere.setAttribute('animation__pulse', `
+            property: material.opacity; 
+            to: 0.4; 
+            dur: 4000; 
+            dir: alternate; 
             loop: true; 
-            dir: normal;
-            easing: easeInQuad
+            easing: easeInOutSine;
+            delay: ${Math.random() * 2000}
         `);
     }
-
-    // Langsame Kreisbewegung um den Baum herum
-    const orbitDuration = 25000 + Math.random() * 10000; // 25-35 Sekunden
-    const orbitDirection = Math.random() > 0.5 ? 1 : -1; // Zufällige Richtung
-    sphere.setAttribute('animation__orbit', `
-        property: rotation; 
-        to: 0 ${360 * orbitDirection} 0; 
-        dur: ${orbitDuration}; 
-        loop: true; 
-        easing: linear;
-        delay: ${Math.random() * 5000}
-    `);
-
-    // Sanftes Auf- und Ab-Schweben
-    const currentPos = sphere.getAttribute('position') || startPos;
-    const posArray = (typeof currentPos === 'string' ? currentPos : startPos).split(' ');
-    const bobHeight = 0.3 + Math.random() * 0.4; // 0.3-0.7 Einheiten
-    const bobTarget = `${posArray[0]} ${parseFloat(posArray[1]) + bobHeight} ${posArray[2]}`;
-
-    sphere.setAttribute('animation__bob', `
-        property: position; 
-        from: ${typeof currentPos === 'string' ? currentPos : startPos}; 
-        to: ${bobTarget}; 
-        dur: 3000 + ${Math.random() * 2000}; 
-        dir: alternate; 
-        loop: true; 
-        easing: easeInOutSine;
-        delay: ${Math.random() * 3000}
-    `);
-
-    // Subtile Opacity-Pulsation für ätherischen Effekt
-    sphere.setAttribute('animation__pulse', `
-        property: material.opacity; 
-        to: 0.4; 
-        dur: 4000; 
-        dir: alternate; 
-        loop: true; 
-        easing: easeInOutSine;
-        delay: ${Math.random() * 2000}
-    `);
 
     // 2. Create a container for the text that will face the camera.
     const textLookAt = document.createElement('a-entity');
@@ -289,8 +323,8 @@ function createBubble(index, type, onClick) {
     const text = document.createElement('a-text');
     text.setAttribute('value', config.text);
     text.setAttribute('align', 'center');
-    text.setAttribute('rotation', '-90 0 0');
-    text.setAttribute('scale', '2.2 2.2 2.2');
+    text.setAttribute('rotation', '-90 0 0'); // Stand the text up
+    text.setAttribute('scale', textScale);
     text.setAttribute('color', 'white');
     text.setAttribute('raycaster', 'objects:');
 
@@ -298,21 +332,8 @@ function createBubble(index, type, onClick) {
     textLookAt.appendChild(text);
     sphere.appendChild(textLookAt);
 
-    // 4. Mobile-optimized event handling
-    let hasClicked = false;
-    let touchTimeout;
-
-    const handleClick = (event) => {
-        if (hasClicked) return;
-        hasClicked = true;
-
-        console.log(`${type} bubble clicked!`);
-
-        if (touchTimeout) {
-            clearTimeout(touchTimeout);
-        }
-
-        // Stop all animations
+    // 4. Use 'touchstart' for the most responsive touch interaction on mobile devices.
+    sphere.addEventListener('click', () => {
         sphere.removeAttribute('animation__move');
         sphere.removeAttribute('animation__grow');
         sphere.removeAttribute('animation__shrink');
@@ -320,8 +341,25 @@ function createBubble(index, type, onClick) {
         sphere.removeAttribute('animation__pulse');
         sphere.removeAttribute('animation__bob');
 
-        sphere.setAttribute('material', `opacity: 1; transparent: true; color: ${config.color};`);
+        // Trigger the disappear animation
+        sphere.emit('disappear');
+        setTimeout(() => {
+            if (sphere.parentNode) {
+                sphere.parentNode.removeChild(sphere);
+            }
+        }, 300);
+        onClick();
+    })
+    sphere.addEventListener('touchstart', () => {
+        // Stop all animations immediately to prevent interference
+        sphere.removeAttribute('animation__move');
+        sphere.removeAttribute('animation__grow');
+        sphere.removeAttribute('animation__shrink');
+        sphere.removeAttribute('animation__orbit');
+        sphere.removeAttribute('animation__pulse');
+        sphere.removeAttribute('animation__bob');
 
+        // Trigger the disappear animation
         sphere.emit('disappear');
         setTimeout(() => {
             if (sphere.parentNode) {
@@ -330,29 +368,7 @@ function createBubble(index, type, onClick) {
         }, 300);
 
         onClick();
-    };
-
-    // Touch events for mobile (primary)
-    sphere.addEventListener('touchstart', (event) => {
-        event.preventDefault(); // Prevent mouse events from firing
-        touchTimeout = setTimeout(() => {
-            handleClick(event);
-        }, 100);
-    }, { passive: false });
-
-    sphere.addEventListener('touchend', (event) => {
-        event.preventDefault();
-    }, { passive: false });
-
-    // Mouse events as fallback for desktop testing
-    sphere.addEventListener('click', handleClick);
-
-    // Visual feedback on touch
-    sphere.addEventListener('touchstart', () => {
-        if (!hasClicked) {
-            sphere.setAttribute('material', `opacity: 1; transparent: true; color: ${config.color};`);
-        }
-    }, { passive: true });
+    }, { once: false }); // Ensure the click only fires once
 
     marker.appendChild(sphere);
 }
@@ -422,6 +438,25 @@ function switchToCO2Mode() {
     create3CO2Bubbles();
 }
 
+function createLargeBubbles(){
+    // Define options for significantly larger bubbles
+    const largeBubbleOptions = {
+        radius: 1,
+        textScale: '2.5 2.5 2.5', // Reduced text size for better proportion
+        isStatic: true // Ensure these bubbles don't have movement animations
+    };
+    let mode;
+    if (currentMode === 'oxygen') {
+        mode = 'O2';
+    } else if (currentMode === 'co2') {
+        mode = 'CO2';
+    }
+    // Create 3 large O2 bubbles
+    for (let i = 0; i < 3; i++) {
+        createBubble(i, mode, showNextMessage, largeBubbleOptions);
+    }
+}
+
 // Warte bis die Szene fertig geladen ist
 document.querySelector('a-scene').addEventListener('loaded', () => {
 
@@ -440,7 +475,9 @@ document.querySelector('a-scene').addEventListener('loaded', () => {
             // Clear everything and start fresh
             clearAllBubbles();
             clearAllMessages();
-            create3OxygenBubbles();
+            if(!isNear){
+                //create3OxygenBubbles();
+            }
         });
 
         // When marker is lost - remove all buttons and messages
@@ -456,6 +493,8 @@ window.addEventListener('load', () => {
     const camera = document.querySelector('[camera]');
     const marker = document.querySelector('a-marker');
     let check;
+    let lastModeChange = 0; // Zeitstempel der letzten Änderung
+    const MODE_CHANGE_DELAY = 2000; // 2 Sekunden Verzögerung zwischen Änderungen
 
     marker.addEventListener('markerFound', () => {
         let cameraPosition = camera.object3D.position;
@@ -467,15 +506,50 @@ window.addEventListener('load', () => {
             markerPosition = marker.object3D.position;
             distance = cameraPosition.distanceTo(markerPosition)
 
-            // do what you want with the distance:
+            // Update distance display
             console.log(distance);
-            //bei 20 sollen die Spheres größer werden und klickbar. Achtung Einheiten nicht Meter
-            let tel= document.getElementById("distanz");
-            tel.setAttribute("value", distance);
-        }, 100);
+            let tel = document.getElementById("distanz");
+            tel.setAttribute("value", distance.toFixed(1));
+
+            const now = Date.now();
+
+            // Nur ändern wenn genug Zeit vergangen ist seit der letzten Änderung
+            if (now - lastModeChange < MODE_CHANGE_DELAY) {
+                return;
+            }
+
+            // Mode changes mit Verzögerung
+            if (distance < 20 && !isNear && !bubbles_created){
+                console.log('Wechsel in den Nah-Modus')
+                isNear = true;
+                lastModeChange = now;
+
+                // Kurze Verzögerung um sicherzustellen, dass keine Click-Events verloren gehen
+                setTimeout(() => {
+                    clearAllBubbles();
+                    clearAllMessages();
+                    createLargeBubbles();
+                    bubbles_created = true;
+                }, 100);
+
+            } else if (distance >= 20 && isNear && bubbles_created){
+                console.log('Wechsel in den Fern-Modus')
+                isNear = false;
+                lastModeChange = now;
+
+                // Kurze Verzögerung um sicherzustellen, dass keine Click-Events verloren gehen
+                setTimeout(() => {
+                    bubbles_created = false;
+                    clearAllBubbles();
+                    clearAllMessages();
+                    create3OxygenBubbles();
+                }, 100);
+            }
+        }, 1000); // Erhöhte Interval-Zeit: 1 Sekunde statt 400ms
     });
 
     marker.addEventListener('markerLost', () => {
         clearInterval(check);
+        lastModeChange = 0; // Reset bei Marker-Verlust
     })
 })
