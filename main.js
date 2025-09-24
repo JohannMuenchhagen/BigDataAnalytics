@@ -4,6 +4,11 @@ let currentMode = 'oxygen'; // Declare currentMode to avoid implicit global
 let distance;
 let isNear;
 let bubbles_created;
+let tree;
+let human;
+let oxygen;
+let carbon;
+
 
 const BUBBLE_CONFIG = {
     O2: {
@@ -49,26 +54,78 @@ const BUBBLE_CONFIG = {
     ]
 };
 
-//TODO Texte anpassen
 const messages = [
-    "Diese {Eiche} erzeugt durch. {100} g O2/Std.&#128167",
-    "Das reicht {3} Menschen fuer 1-Stunde-Atmen aus",
-    "Mehr Baeume &#127795; = Mehr Sauerstoff fuer uns alle &#10084;"
+    `Diese ${tree} erzeugt . ${oxygen} g O2/Std.&#128167`,
+    `Das reicht ${human} Menschen für 1-Stunde-Atmen aus`,
+    "Mehr Bäume &#127795; = Mehr Sauerstoff für uns alle &#10084;"
 ];
 
 // CO2 messages for left side (received messages)
 let co2MessageIndex = 0;
 const co2Messages = [
-    "Diese {Eiche} nimmt 100 g CO2/Std. auf &#127795;",
+    `Diese ${tree} nimmt ${carbon} g CO2/Std. auf &#127795;`,
     "Was sollen wir denn tun, um ihm dabei zu helfen? &#128158;"
 ];
 
 // CO2 action messages for right side (sent messages)
 const co2ActionMessages = [
-    "pro Nutzung eines Mehrwegbechers spart man ~21g weniger CO2 &#127796;",
-    "pro KM Öffi-Fahren spart man ~108g weniger CO2 &#128154;",
-    "pro KM Radfahren spart man sogar ~166g weniger CO2 &#128652;",
+    "pro Nutzung eines Mehrwegbechers spart man ~21g CO2 &#127796;",
+    "pro KM Öffi-Fahren spart man ~108g CO2 &#128154;",
+    "pro KM Radfahren spart man sogar ~166g CO2 &#128652;",
 ];
+
+const wood_density={
+    'BUCHE':0.68,
+    'EICHE':0.75,
+    'KIEFER':0.52,
+    'FICHTE':0.43
+}
+
+function createO2CO2(tree,height, circumstance){
+    let rho = wood_density[tree];
+    let dbh = circumstance / Math.PI;
+
+    let agb = 0.0673 * ((rho * dbh * 2 * height)*0.976)
+    let anual_increment = agb * 0.05
+    let carbon_intake = anual_increment * 0.5;
+    let co2_year = carbon_intake * 3.67;
+    let o2_year = carbon_intake * 2.67;
+    let active_hours = 6 * 30 * 12;
+
+    carbon = co2_year/active_hours * 1000;
+    oxygen = o2_year/active_hours * 1000;
+}
+
+async function fillMessages(){
+    const url = 'https://services2.arcgis.com/jUpNdisbWqRpMo35/arcgis/rest/services/Baumkataster_Berlin/FeatureServer/0/query?where=baumid%20%3D%20\'00008100:001162fd\'&outFields=baumid,art_dtsch,gattung_deutsch,standalter,kronedurch,stammumfg,baumhoehe&outSR=4326&f=json';
+    try{
+        const response = await fetch(url);
+        if(!response.ok){
+            throw new Error(`Response status: ${response.status}`);
+        }
+        const result = await response.json();
+        console.log(result)
+
+        if(result.features && result.features.length >0){
+            const attrs = result.features[0].attributes;
+
+            tree = attrs.gattung_deutsch || "Eiche";
+            const height = attrs.baumhoehe || 20; // in m
+            const circumstance = attrs.stammumfg || 100; //in cm
+            console.log(tree);
+            createO2CO2(tree,height, circumstance);
+
+            human =  oxygen / 595.8; // ungefährer Verbrauch pro Tag
+
+            messages[0] = `Diese ${tree} erzeugt ${oxygen.toFixed(2)} g O2/Std. &#128167;`;
+            messages[1] = `Das reicht ${human.toFixed(2)} Menschen für 1-Stunde-Atmen aus`;
+            co2Messages[0] = `Diese ${tree} nimmt ${carbon.toFixed(2)} g CO2/Std. auf &#127795;`;
+        }
+    } catch(error) {
+        console.error(error.message);
+    }
+}
+
 
 function createMessageBox(text) {
     const messageContainer = document.getElementById('messageContainer');
@@ -400,7 +457,7 @@ function showNextCO2Message() {
 
 function create3CO2Bubbles() {
     // Create 8 CO2 bubbles with staggered timing
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 5; i++) {
         setTimeout(() => {
             createBubble(i, 'CO2', showNextCO2Message);
         }, i * 900); // 0.9 second delay between each bubble
@@ -458,11 +515,12 @@ function createLargeBubbles(){
 }
 
 // Warte bis die Szene fertig geladen ist
-document.querySelector('a-scene').addEventListener('loaded', () => {
+document.querySelector('a-scene').addEventListener('loaded', async () => {
 
     //const imgEl = document.getElementById("clickableImage");
     const marker = document.getElementById("hiroMarker");
 
+    await fillMessages();
     // Listen for marker detection events
     if (marker) {
         // When marker is found - always start with oxygen mode
@@ -475,7 +533,7 @@ document.querySelector('a-scene').addEventListener('loaded', () => {
             // Clear everything and start fresh
             clearAllBubbles();
             clearAllMessages();
-            if(!isNear){
+            if (!isNear) {
                 //create3OxygenBubbles();
             }
         });
@@ -489,12 +547,14 @@ document.querySelector('a-scene').addEventListener('loaded', () => {
     }
 });
 
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
     const camera = document.querySelector('[camera]');
     const marker = document.querySelector('a-marker');
     let check;
     let lastModeChange = 0; // Zeitstempel der letzten Änderung
     const MODE_CHANGE_DELAY = 2000; // 2 Sekunden Verzögerung zwischen Änderungen
+
+    await fillMessages();//API abgreifen
 
     marker.addEventListener('markerFound', () => {
         let cameraPosition = camera.object3D.position;
@@ -519,7 +579,7 @@ window.addEventListener('load', () => {
             }
 
             // Mode changes mit Verzögerung
-            if (distance < 20 && !isNear && !bubbles_created){
+            if (distance < 20 && !isNear && !bubbles_created) {
                 console.log('Wechsel in den Nah-Modus')
                 isNear = true;
                 lastModeChange = now;
@@ -532,7 +592,7 @@ window.addEventListener('load', () => {
                     bubbles_created = true;
                 }, 100);
 
-            } else if (distance >= 20 && isNear && bubbles_created){
+            } else if (distance >= 20 && isNear && bubbles_created) {
                 console.log('Wechsel in den Fern-Modus')
                 isNear = false;
                 lastModeChange = now;
