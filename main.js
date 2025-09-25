@@ -172,7 +172,7 @@ function createMessageBox(text) {
                 messageBox.parentNode.removeChild(messageBox);
             }
         }, 300);
-    }, 2000); // 2 Sekunden anzeigen
+    }, 5000); // 2 Sekunden anzeigen
 }
 
 function createLeftMessageBox(text) {
@@ -219,7 +219,7 @@ function createLeftMessageBox(text) {
                 messageBox.parentNode.removeChild(messageBox);
             }
         }, 300);
-    }, 2000); // 2 Sekunden anzeigen
+    }, 5000); // 2 Sekunden anzeigen
 }
 
 function showNextMessage() {
@@ -232,7 +232,7 @@ function showNextMessage() {
         if (messageIndex === messages.length) {
             setTimeout(() => {
                 switchToCO2Mode();
-            }, 7000);
+            }, 6000);
         }
     }
 }
@@ -267,7 +267,7 @@ function createBubble(index, type, onClick, options = { isStatic: false }) {
         BUBBLE_CONFIG.CO2_END_POSITIONS[index % BUBBLE_CONFIG.CO2_END_POSITIONS.length];
 
     // Set default or custom sizes
-    const radius = options.radius || 0.4;
+    const radius = options.radius || 0.8;
     const textScale = options.textScale || '2.2 2.2 2.2';
 
     // 1. Create the sphere. This is the root object and the single click target.
@@ -281,7 +281,7 @@ function createBubble(index, type, onClick, options = { isStatic: false }) {
     sphere.classList.add(`${type.toLowerCase()}-bubble`);
     sphere.classList.add('clickable');
 
-    sphere.setAttribute('geometry', 'primitive: sphere; radius: 0.4; segmentsWidth: 16; segmentsHeight: 12;');
+    sphere.setAttribute('geometry', 'primitive: sphere; radius: 0.8; segmentsWidth: 16; segmentsHeight: 12;');
 
     // Configure the disappear animation (using the correct radius)
     sphere.setAttribute('animation__disappear', 'property: scale; to: 0 0 0; dur: 300; easing: easeInQuad; startEvents: disappear');
@@ -498,8 +498,8 @@ function switchToCO2Mode() {
 function createLargeBubbles(){
     // Define options for significantly larger bubbles
     const largeBubbleOptions = {
-        radius: 1,
-        textScale: '2.5 2.5 2.5', // Reduced text size for better proportion
+        radius: 1.5, // Increased from 1 to 1.5
+        textScale: '4.0 4.0 4.0', // Increased from '2.5 2.5 2.5' to '4.0 4.0 4.0'
         isStatic: true // Ensure these bubbles don't have movement animations
     };
     let mode;
@@ -610,6 +610,7 @@ window.addEventListener('load', async () => {
 
     marker.addEventListener('markerLost', () => {
         clearInterval(check);
-        lastModeChange = 0; // Reset bei Marker-Verlust
+        lastModeChange = 0;
+        bubbles_created;// Reset bei Marker-Verlust
     })
 })
