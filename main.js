@@ -55,23 +55,23 @@ const BUBBLE_CONFIG = {
 };
 
 const messages = [
-    `Diese ${tree} erzeugt . ${oxygen} g O2/Std.&#128167`,
-    `Das reicht ${human} Menschen für 1-Stunde-Atmen aus`,
+    "Diese ${tree} erzeugt ${oxygen} g O2/Std.&#128167;",
+    "Das reicht ${human} Menschen für 1-Stunde-Atmen aus &#129329;",
     "Mehr Bäume &#127795; = Mehr Sauerstoff für uns alle &#10084;"
 ];
 
 // CO2 messages for left side (received messages)
 let co2MessageIndex = 0;
 const co2Messages = [
-    `Diese ${tree} nimmt ${carbon} g CO2/Std. auf &#127795;`,
-    "Was sollen wir denn tun, um ihm dabei zu helfen? &#128158;"
+    `Diese ${tree} nimmt ${carbon} g CO2/Std. auf &#127793;`,
+    "Wie können wir weniger CO2 verursachen? &#129300;"
 ];
 
 // CO2 action messages for right side (sent messages)
 const co2ActionMessages = [
-    "pro Nutzung eines Mehrwegbechers spart man ~21g CO2 &#127796;",
-    "pro KM Öffi-Fahren spart man ~108g CO2 &#128154;",
-    "pro KM Radfahren spart man sogar ~166g CO2 &#128652;",
+    "Ein Mehrwegbecher = ~21g weniger CO2 &#129371;",
+    "1 KM mit Öffi-Fahren spart man ~108g CO2 &#128652;",
+    "1 KM Radfahren sogar ~166g CO2! &#128692;",
 ];
 
 const wood_density={
@@ -115,10 +115,13 @@ async function fillMessages(){
             console.log(tree);
             createO2CO2(tree,height, circumstance);
 
-            human =  oxygen / 595.8; // ungefährer Verbrauch pro Tag
+            // Custom rounding: <0.4 rounds down, ≥0.4 rounds up
+            const exactHuman = oxygen / 15;
+            const decimal = exactHuman - Math.floor(exactHuman);
+            human = decimal < 0.4 ? Math.floor(exactHuman) : Math.ceil(exactHuman);
 
             messages[0] = `Diese ${tree} erzeugt ${oxygen.toFixed(2)} g O2/Std. &#128167;`;
-            messages[1] = `Das reicht ${human.toFixed(2)} Menschen für 1-Stunde-Atmen aus`;
+            messages[1] = `Das reicht ${human} Menschen für 1-Stunde-Atmen aus`;
             co2Messages[0] = `Diese ${tree} nimmt ${carbon.toFixed(2)} g CO2/Std. auf &#127795;`;
         }
     } catch(error) {
@@ -172,7 +175,7 @@ function createMessageBox(text) {
                 messageBox.parentNode.removeChild(messageBox);
             }
         }, 300);
-    }, 5000); // 2 Sekunden anzeigen
+    }, 5000); // 5 seconds display time
 }
 
 function createLeftMessageBox(text) {
@@ -184,7 +187,9 @@ function createLeftMessageBox(text) {
             background-color: #E5E5EA;
             color: black;
             padding: 10px 15px;
-            margin: 0 0 10px 30px;
+            margin-bottom: 10px;
+            margin-left: 0;
+            margin-right: auto;
             border-radius: 18px;
             max-width: 250px;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -219,7 +224,7 @@ function createLeftMessageBox(text) {
                 messageBox.parentNode.removeChild(messageBox);
             }
         }, 300);
-    }, 5000); // 2 Sekunden anzeigen
+    }, 5000); // 5 seconds display time
 }
 
 function showNextMessage() {
@@ -232,7 +237,7 @@ function showNextMessage() {
         if (messageIndex === messages.length) {
             setTimeout(() => {
                 switchToCO2Mode();
-            }, 6000);
+            }, 5000);
         }
     }
 }
