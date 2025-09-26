@@ -55,8 +55,8 @@ const BUBBLE_CONFIG = {
 };
 
 const messages = [
-    `Diese ${tree} erzeugt ${oxygen} g O2/Std.&#128167`,
-    `Das reicht ${human} Menschen für 1-Stunde-Atmen aus`,
+    "Diese ${tree} erzeugt ${oxygen} g O2/Std.&#128167;",
+    "Das reicht ${human} Menschen für 1-Stunde-Atmen aus &#129329;",
     "Mehr Bäume &#127795; = Mehr Sauerstoff für uns alle &#10084;"
 ];
 
@@ -64,14 +64,14 @@ const messages = [
 let co2MessageIndex = 0;
 const co2Messages = [
     `Diese ${tree} nimmt ${carbon} g CO2/Std. auf &#127793;`,
-    "Was sollen wir denn tun, um ihm dabei zu helfen? &#129300;"
+    "Wie können wir weniger CO2 verursachen? &#129300;"
 ];
 
 // CO2 action messages for right side (sent messages)
 const co2ActionMessages = [
-    "pro Nutzung eines Mehrwegbechers spart man ~21g CO2 &#129371;",
-    "pro KM Öffi-Fahren spart man ~108g CO2 &#128652;",
-    "pro KM Radfahren spart man sogar ~166g CO2 &#128692;",
+    "Ein Mehrwegbecher = ~21g weniger CO2 &#129371;",
+    "1 KM mit Öffi-Fahren spart man ~108g CO2 &#128652;",
+    "1 KM Radfahren sogar ~166g CO2! &#128692;",
 ];
 
 const wood_density={
@@ -175,7 +175,7 @@ function createMessageBox(text) {
                 messageBox.parentNode.removeChild(messageBox);
             }
         }, 300);
-    }, 5000); // 2 Sekunden anzeigen
+    }, 5000); // 5 seconds display time
 }
 
 function createLeftMessageBox(text) {
@@ -187,7 +187,9 @@ function createLeftMessageBox(text) {
             background-color: #E5E5EA;
             color: black;
             padding: 10px 15px;
-            margin: 0 0 10px 15px;
+            margin-bottom: 10px;
+            margin-left: 0;
+            margin-right: auto;
             border-radius: 18px;
             max-width: 250px;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -222,7 +224,7 @@ function createLeftMessageBox(text) {
                 messageBox.parentNode.removeChild(messageBox);
             }
         }, 300);
-    }, 5000); // 2 Sekunden anzeigen
+    }, 5000); // 5 seconds display time
 }
 
 function showNextMessage() {
@@ -235,7 +237,7 @@ function showNextMessage() {
         if (messageIndex === messages.length) {
             setTimeout(() => {
                 switchToCO2Mode();
-            }, 6000);
+            }, 5000);
         }
     }
 }
